@@ -1,6 +1,8 @@
 #include <GyverOLED.h>
 #include "GyverEncoder.h"
 
+#define encoder0Pin5V 7
+#define encoder0PinGND 8
 
 #define encoder0PinA 2 
 #define encoder0PinB 3 
@@ -24,12 +26,17 @@ GyverOLED oled(0x3C);
 
 
 unsigned long timer;
+bool StrobeState;
 
 void setup() 
 {   
   pinMode(led_pin, OUTPUT);
+  pinMode(encoder0Pin5V, OUTPUT);
+  pinMode(encoder0PinGND, OUTPUT);
   pinMode(OLED_SDA, OUTPUT);
   pinMode(OLED_SCL, OUTPUT);
+  digitalWrite(encoder0Pin5V, 1);
+  digitalWrite(encoder0PinGND, 0);
   digitalWrite(OLED_SDA, 1);
   digitalWrite(OLED_SCL, 1);
   delay(500);
@@ -37,6 +44,7 @@ void setup()
   Serial.begin(9600);
   updateScreen();
   timer = millis();
+  StrobeState = false;
 } 
 
 void loop()
@@ -78,19 +86,19 @@ void processRotate()
 {
   if(enc1.isRightH())
   {
-    changeVar(step_freq*step_rough);
+    changeVar(step_freq);
   }
   else if(enc1.isRight())
   {
-    changeVar(step_freq);
+    changeVar(step_freq*step_rough);
   }
   else if(enc1.isLeftH())
   {
-    changeVar(-(step_freq*step_rough));
+    changeVar(-(step_freq));
   }
   else if(enc1.isLeft())
   {
-    changeVar(-step_freq);
+    changeVar(-step_freq*step_rough);
   }
 }
 void changeVar(int mills)
@@ -110,22 +118,37 @@ void changeVar(int mills)
 }
 void blink()
 {
-  digitalWrite(led_pin, 1);
-  delay(time_light);                   
-  digitalWrite(led_pin, 0);
-  delay(1000/freq-time_light);
+  if(!StrobeState)
+  {  
+    if(millis() - timer >= 1000/freq-time_light)
+    {
+      timer = millis();
+      StrobeState = !StrobeState;
+      digitalWrite(led_pin, StrobeState);
+    }
+  }
+  else if(StrobeState)
+  {
+    if(millis()-timer>= time_light)
+    {
+      timer = millis();
+      StrobeState = !StrobeState;
+      digitalWrite(led_pin, StrobeState);
+    }
+  }
 }
 void checkVar()
 {
-  if(freq<1)
-    freq=1;
-  else if(freq>1000)
-    freq = 1000;
-  if(time_light<1)
-    time_light = 1;
-  else if(time_light >1000)
-    time_light = 1000;
-
+  if(freq<0)
+  {
+    freq=0;
+    updateScreen();
+  }
+  if(time_light<0)
+  {
+    time_light = 0;
+    updateScreen();
+  }
 }
 void oledInit() 
 {
